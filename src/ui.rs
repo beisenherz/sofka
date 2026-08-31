@@ -224,7 +224,11 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
         ])
     };
 
-    let mut context_line = field("Context:", app.cluster.context.clone(), theme::mauve());
+    let mut context_line = field(
+        "Context:",
+        app.cluster.context.clone(),
+        theme::mauve_accent(),
+    );
     if app.readonly {
         context_line.push_span(Span::styled(
             "  [read-only]",
@@ -328,7 +332,7 @@ fn draw_compact_header(frame: &mut Frame, app: &App, area: Rect) {
         Span::styled("  ", theme::dim()),
         Span::styled(
             app.cluster.context.clone(),
-            Style::default().fg(theme::mauve()),
+            Style::default().fg(theme::mauve_accent()),
         ),
     ];
     if app.readonly {
@@ -1613,7 +1617,7 @@ fn ansi_16_color(code: u8) -> Option<Color> {
         32 => theme::green(),
         33 => theme::yellow(),
         34 => theme::blue(),
-        35 => theme::mauve(),
+        35 => theme::mauve_accent(),
         36 => theme::teal(),
         37 => theme::subtext1(),
         90 => theme::overlay1(),
@@ -1806,7 +1810,8 @@ fn line_text(line: &Line) -> String {
 }
 
 /// YAML / `kubectl describe` colorization: comments dimmed, section headers in
-/// mauve, keys in sky, and values tinted by kind (numbers, booleans, statuses).
+/// mauve (or pink when the skin's mauve is a border neutral), keys in sky, and
+/// values tinted by kind (numbers, booleans, statuses).
 fn highlight_yaml(line: &str) -> Vec<Span<'static>> {
     let trimmed = line.trim_start();
 
@@ -1843,7 +1848,7 @@ fn highlight_yaml(line: &str) -> Vec<Span<'static>> {
         return vec![Span::styled(
             line.to_string(),
             Style::default()
-                .fg(theme::mauve())
+                .fg(theme::mauve_accent())
                 .add_modifier(Modifier::BOLD),
         )];
     }
@@ -1863,15 +1868,16 @@ fn is_keyish(s: &str) -> bool {
             .all(|c| c.is_alphanumeric() || matches!(c, '_' | '-' | ' '))
 }
 
-/// Tint a value: numbers peach, booleans/null mauve, status words by their
-/// status color, everything else default text.
+/// Tint a value: numbers peach, booleans/null mauve (or pink when mauve is a
+/// border neutral), status words by their status color, everything else
+/// default text.
 fn value_style(value: &str) -> Style {
     let t = value.trim_end();
     if matches!(
         t,
         "true" | "false" | "null" | "<none>" | "<unset>" | "<unknown>"
     ) {
-        return Style::default().fg(theme::mauve());
+        return Style::default().fg(theme::mauve_accent());
     }
     if t.parse::<f64>().is_ok() {
         return Style::default().fg(theme::peach());
@@ -2788,7 +2794,7 @@ fn draw_palette(frame: &mut Frame, app: &mut App, area: Rect) {
                 Span::styled("  ns", theme::dim()),
             ])),
             SuggestKind::Context => ListItem::new(Line::from(vec![
-                Span::styled(s.label.clone(), Style::default().fg(theme::mauve())),
+                Span::styled(s.label.clone(), Style::default().fg(theme::mauve_accent())),
                 Span::styled("  ctx", theme::dim()),
             ])),
             // Saved bookmarks read as a distinct, high-value jump (a ★ tag).
@@ -2836,7 +2842,7 @@ fn draw_xray(frame: &mut Frame, app: &mut App, area: Rect) {
     let glyph = |kind: &str| match kind {
         "deployment" => ("◈", theme::blue()),
         "replicaset" => ("◇", theme::sapphire()),
-        "statefulset" => ("◈", theme::mauve()),
+        "statefulset" => ("◈", theme::mauve_accent()),
         "daemonset" => ("◈", theme::pink()),
         "pod" => ("●", theme::green()),
         "container" => ("▪", theme::teal()),
@@ -3202,7 +3208,7 @@ fn counts_tile(frame: &mut Frame, area: Rect, p: &crate::store::Pulse) {
             ),
         ]),
         Line::from(vec![
-            Span::styled("  Jobs        ", Style::default().fg(theme::mauve())),
+            Span::styled("  Jobs        ", Style::default().fg(theme::mauve_accent())),
             Span::styled(p.jobs_total.to_string(), Style::default().fg(theme::text())),
         ]),
     ];
@@ -3224,11 +3230,11 @@ fn draw_prompt(frame: &mut Frame, app: &App, area: Rect) {
             Span::styled(
                 ":",
                 Style::default()
-                    .fg(theme::mauve())
+                    .fg(theme::mauve_accent())
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled(app.command.clone(), Style::default().fg(theme::text())),
-            Span::styled("█", Style::default().fg(theme::mauve())),
+            Span::styled("█", Style::default().fg(theme::mauve_accent())),
         ]),
         Mode::Filter => {
             let mut spans = vec![
@@ -3855,8 +3861,8 @@ mod tests {
     #[test]
     fn value_styling() {
         assert_eq!(value_style("3").fg, Some(theme::peach()));
-        assert_eq!(value_style("true").fg, Some(theme::mauve()));
-        assert_eq!(value_style("<none>").fg, Some(theme::mauve()));
+        assert_eq!(value_style("true").fg, Some(theme::mauve_accent()));
+        assert_eq!(value_style("<none>").fg, Some(theme::mauve_accent()));
         assert_eq!(value_style("Running").fg, Some(theme::green()));
         assert_eq!(value_style("nginx:1.25").fg, Some(theme::text()));
     }
@@ -3868,7 +3874,7 @@ mod tests {
         // Section header in mauve.
         assert_eq!(
             highlight_yaml("Containers:")[0].style.fg,
-            Some(theme::mauve())
+            Some(theme::mauve_accent())
         );
         // key: value — key in sky, value tinted by status.
         let spans = highlight_yaml("Status:    Running");

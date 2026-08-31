@@ -125,6 +125,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "dracula",
     "solarized-dark",
     "solarized-light",
+    "flexoki-dark",
+    "flexoki-light",
     "tokyo-night",
     "one-dark",
     "rose-pine",
@@ -197,6 +199,18 @@ pub fn builtin(name: &str) -> Option<Palette> {
             "#859900", "#2aa198", "#2aa198", "#268bd2", "#268bd2", "#6c71c4", "#002b36", "#073642",
             "#586e75", "#657b83", "#839496", "#93a1a1", "#eee8d5", "#eee8d5", "#fdf6e3", "#eee8d5",
             "#eee8d5",
+        ],
+        "flexoki" | "flexoki-dark" => [
+            "#ce5d97", "#d14d41", "#ce5d97", "#282726", "#d14d41", "#af3029", "#da702c", "#d0a215",
+            "#879a39", "#3aa99f", "#66a0c8", "#205ea6", "#4385be", "#403e3c", "#fffcf0", "#b7b5ac",
+            "#6f6e69", "#575653", "#403e3c", "#343331", "#282726", "#1c1b1a", "#100f0f", "#1c1b1a",
+            "#100f0f",
+        ],
+        "flexoki-light" => [
+            "#a02f6f", "#d14d41", "#ce5d97", "#e6e4d9", "#af3029", "#d14d41", "#bc5215", "#ad8301",
+            "#66800b", "#24837b", "#4385be", "#66a0c8", "#205ea6", "#cecdc3", "#100f0f", "#6f6e69",
+            "#b7b5ac", "#cecdc3", "#dad8ce", "#e6e4d9", "#f2f0e5", "#f2f0e5", "#fffcf0", "#f2f0e5",
+            "#100f0f",
         ],
         "tokyo-night" | "tokyonight" => [
             "#f7768e", "#f7768e", "#bb9af7", "#9d7cd8", "#f7768e", "#db4b4b", "#ff9e64", "#e0af68",
@@ -413,6 +427,64 @@ pub fn selected_row() -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
+/// Text shade for the selection bar (see [`selected_row`]).
+pub fn selection_text() -> Color {
+    selection_text_of(palette())
+}
+
+fn selection_text_of(p: Palette) -> Color {
+    if contrast(p.text, p.lavender) > contrast(p.base, p.lavender) {
+        p.text
+    } else {
+        p.base
+    }
+}
+
+/// A mauve that is legible as text: `mauve` itself when it contrasts with the
+/// background, `pink` when it doesn't. Flexoki maps its border neutral (`ui`)
+/// into the `mauve` slot, which would render YAML section headers, booleans,
+/// icons and labels nearly invisible — the fallback keeps those accents
+/// readable while the borders keep their neutral gray. Call sites that
+/// deliberately want the border tint ([`border`], the source-label palette)
+/// keep using `mauve()`.
+pub fn mauve_accent() -> Color {
+    mauve_accent_of(palette())
+}
+
+fn mauve_accent_of(p: Palette) -> Color {
+    if contrast(p.mauve, p.base) >= 2.5 {
+        p.mauve
+    } else {
+        p.pink
+    }
+}
+
+/// WCAG contrast ratio between two colors (symmetric).
+fn contrast(a: Color, b: Color) -> f32 {
+    let (hi, lo) = if luminance(a) >= luminance(b) {
+        (a, b)
+    } else {
+        (b, a)
+    };
+    (luminance(hi) + 0.05) / (luminance(lo) + 0.05)
+}
+
+/// Relative luminance of a color (0..1); non-RGB colors read as black.
+fn luminance(c: Color) -> f32 {
+    let Color::Rgb(r, g, b) = c else {
+        return 0.0;
+    };
+    let lin = |v: u8| {
+        let v = v as f32 / 255.0;
+        if v <= 0.04045 {
+            v / 12.92
+        } else {
+            ((v + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
 /// Sort-indicator arrow in the header: k9s `header.sorterColor` (sky).
 pub fn sorter() -> Color {
     sky()
@@ -451,7 +523,7 @@ pub fn status_color(s: &str) -> Color {
         | "pending-upgrade" | "pending-rollback" => yellow(),
         // Matches row_color's killColor — a distinct "on its way out" hue,
         // not the same bucket as Pending.
-        "Terminating" | "uninstalling" => mauve(),
+        "Terminating" | "uninstalling" => mauve_accent(),
         "Failed" | "Error" | "CrashLoopBackOff" | "ImagePullBackOff" | "ErrImagePull"
         | "Evicted" | "OOMKilled" | "NotReady" | "False" | "failed" => red(),
         "Unknown" | "" | "unknown" => overlay1(),
@@ -477,7 +549,7 @@ pub fn row_color(s: &str) -> Color {
         | "pending-upgrade" | "pending-rollback" => peach(),
         "Completed" | "Succeeded" | "superseded" | "uninstalled" => overlay0(),
         // k9s killColor — terminating/deleting rows.
-        "Terminating" | "uninstalling" => mauve(),
+        "Terminating" | "uninstalling" => mauve_accent(),
         _ => blue(),
     }
 }
@@ -507,6 +579,46 @@ mod tests {
     fn mocha_base_matches_golden_swatch() {
         let p = builtin("catppuccin-mocha").unwrap();
         assert_eq!(p.base, Color::Rgb(30, 30, 46));
+    }
+
+    #[test]
+    fn flexoki_swatches_match_golden_values() {
+        let dark = builtin("flexoki-dark").unwrap();
+        assert_eq!(dark.base, Color::Rgb(16, 15, 15));
+        assert_eq!(dark.text, Color::Rgb(255, 252, 240));
+        assert_eq!(dark.mauve, Color::Rgb(40, 39, 38)); // ui
+        assert_eq!(dark.lavender, Color::Rgb(64, 62, 60)); // ui-3
+        let light = builtin("flexoki-light").unwrap();
+        assert_eq!(light.base, Color::Rgb(255, 252, 240));
+        assert_eq!(light.text, Color::Rgb(16, 15, 15));
+        assert_eq!(light.mauve, Color::Rgb(230, 228, 217)); // ui
+        assert_eq!(light.red, Color::Rgb(175, 48, 41));
+    }
+
+    #[test]
+    fn selection_text_flips_on_flexoki_neutral_bars() {
+        for skin in BUILTIN_NAMES {
+            let p = builtin(skin).unwrap();
+            let want = if skin.starts_with("flexoki") {
+                p.text
+            } else {
+                p.base
+            };
+            assert_eq!(selection_text_of(p), want, "selection text for {skin}");
+        }
+    }
+
+    #[test]
+    fn mauve_accent_falls_back_on_faint_border_neutrals() {
+        for skin in BUILTIN_NAMES {
+            let p = builtin(skin).unwrap();
+            let want = if skin.starts_with("flexoki") {
+                p.pink
+            } else {
+                p.mauve
+            };
+            assert_eq!(mauve_accent_of(p), want, "mauve accent for {skin}");
+        }
     }
 
     #[test]
